@@ -1,9 +1,27 @@
 import java.util.Scanner;
+import co.edu.tdea.Cola;
+import co.edu.tdea.ListaEnlazada;
+import co.edu.tdea.Pila;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Estudiante 4 – Menú principal e integración del sistema
-// Coordina todos los módulos: estructuras (Est.1), pacientes (Est.2),
-// servicios/pagos (Est.3) y reportes (Est.4)
+//
+// Punto de entrada del programa. Coordina los 4 módulos del grupo:
+//   Est.1 → ListaEnlazada<T>, Cola<T>, Pila<T>, Nodo<T>  (estructuras)
+//   Est.2 → Paciente, Consultorio, Ingreso                (entidades)
+//   Est.3 → Servicio, ItemServicio, Pago, SistemaClinica  (lógica de negocio)
+//   Est.4 → Reportes, Main                                (menú y estadísticas)
+//
+// Notas de API para las estructuras (Est.1):
+//   · ListaEnlazada, Cola y Pila usan tamano() — NO getTamanio()
+//   · Cola usa capacidadMaxima()              — NO getCapacidadMaxima()
+//   · Iteración se hace con recorrer(Consumer) — NO getCabeza() + bucle while
+//   · Cola usa insertar()/eliminar()           — NO encolar()/desencolar()
+//
+// Notas de API para entidades (Est.2):
+//   · La sala es Consultorio                  — NO ConsultorioHabitacion
+//   · Disponibilidad: getEstado()             — NO isDisponible()
+//   · Sin tieneEps() en Paciente; verificar getEps() != null && !empty
 // ════════════════════════════════════════════════════════════════════════════
 public class Main {
 
@@ -13,6 +31,10 @@ public class Main {
 
     private static final String SEP = "=".repeat(60);
 
+    /**
+     * Punto de entrada. Crea SistemaClinica (fuente única de datos),
+     * instancia Reportes con esa misma referencia y abre el menú principal.
+     */
     public static void main(String[] args) {
         sistema  = new SistemaClinica();
         reportes = new Reportes(sistema);
@@ -63,6 +85,7 @@ public class Main {
 
     // ════════════════════════════════════════════════════════════════════════
     // SUBMENÚ 1 – PACIENTES
+    // Delega en SistemaClinica (Est.3) todas las operaciones CRUD.
     // ════════════════════════════════════════════════════════════════════════
     private static void menuPacientes() {
         boolean volver = false;
@@ -108,12 +131,18 @@ public class Main {
         else           System.out.println("  Encontrado:\n  " + p);
     }
 
+    /**
+     * Lista todos los pacientes usando recorrer(Consumer).
+     * ListaEnlazada no tiene toString() útil; hay que iterar con recorrer().
+     */
     private static void listarPacientes() {
         System.out.println("\n-- Lista de Pacientes Registrados --");
         if (sistema.getListaPacientes().estaVacia()) {
             System.out.println("  Sin pacientes registrados.");
         } else {
-            System.out.print(sistema.getListaPacientes().toString());
+            int[] i = {1};
+            sistema.getListaPacientes().recorrer(p ->
+                System.out.println("  " + i[0]++ + ". " + p));
         }
     }
 
@@ -132,6 +161,8 @@ public class Main {
 
     // ════════════════════════════════════════════════════════════════════════
     // SUBMENÚ 2 – COLAS
+    // Cola<Paciente>: insertar()/eliminar(), tamano(), capacidadMaxima().
+    // SistemaClinica envuelve esas operaciones con lógica de negocio.
     // ════════════════════════════════════════════════════════════════════════
     private static void menuColas() {
         boolean volver = false;
@@ -179,7 +210,10 @@ public class Main {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // SUBMENÚ 3 – HABITACIONES
+    // SUBMENÚ 3 – HABITACIONES / SALAS
+    // La clase de sala es Consultorio (no ConsultorioHabitacion).
+    // Disponibilidad: getEstado() devuelve "disponible" u "ocupado".
+    // Listado con recorrer(Consumer) sobre getHabitaciones().
     // ════════════════════════════════════════════════════════════════════════
     private static void menuHabitaciones() {
         boolean volver = false;
@@ -193,7 +227,15 @@ public class Main {
             switch (op) {
                 case 1:
                     System.out.println("\n-- Salas de la Clínica --");
-                    System.out.print(sistema.getHabitaciones().toString());
+                    if (sistema.getHabitaciones().estaVacia()) {
+                        System.out.println("  Sin salas registradas.");
+                    } else {
+                        // Consultorio.getEstado() devuelve "disponible" u "ocupado"
+                        int[] i = {1};
+                        sistema.getHabitaciones().recorrer(c ->
+                            System.out.printf("  %d. Sala %d | %s | %s%n",
+                                i[0]++, c.getNumero(), c.getTipo(), c.getEstado()));
+                    }
                     break;
                 case 2: {
                     String doc  = leerTexto("Documento del paciente: ");
@@ -214,6 +256,9 @@ public class Main {
 
     // ════════════════════════════════════════════════════════════════════════
     // SUBMENÚ 4 – SERVICIOS Y PAGOS
+    // Pago.MedioPago es un enum de Est.3 con valores EFECTIVO, TARJETA_DEBITO,
+    // TARJETA_CREDITO, SEGURO_EPS. Cada uno tiene getIndice() (0-3) usado
+    // por SistemaClinica para indexar contadorPorMedio[] y montoPorMedio[].
     // ════════════════════════════════════════════════════════════════════════
     private static void menuServicios() {
         boolean volver = false;
@@ -229,17 +274,38 @@ public class Main {
             switch (op) {
                 case 1:
                     System.out.println("\n-- Catálogo de Servicios --");
-                    System.out.print(sistema.getCatalogoServicios().toString());
+                    if (sistema.getCatalogoServicios().estaVacia()) {
+                        System.out.println("  Sin servicios en catálogo.");
+                    } else {
+                        int[] i = {1};
+                        // Servicio.getCodigo() devuelve Long; se imprime con concatenación
+                        sistema.getCatalogoServicios().recorrer(s ->
+                            System.out.printf("  %d. [%s] %s — $%,.0f%n",
+                                i[0]++, s.getCodigo(), s.getNombre(), s.getPrecio()));
+                    }
                     break;
                 case 2:  agregarServicio();   break;
                 case 3:  registrarPago();     break;
                 case 4:
                     System.out.println("\n-- Pila de Servicios Prestados (más reciente arriba) --");
-                    System.out.print(sistema.getPilaServicios().toString());
+                    if (sistema.getPilaServicios().estaVacia()) {
+                        System.out.println("  Sin servicios registrados aún.");
+                    } else {
+                        int[] i = {1};
+                        // Pila<String>: cada elemento es un String descriptivo del servicio
+                        sistema.getPilaServicios().recorrer(s ->
+                            System.out.println("  " + i[0]++ + ". " + s));
+                    }
                     break;
                 case 5:
                     System.out.println("\n-- Historial de Ingresos --");
-                    System.out.print(sistema.getHistorialIngresos().toString());
+                    if (sistema.getHistorialIngresos().estaVacia()) {
+                        System.out.println("  Sin ingresos registrados.");
+                    } else {
+                        int[] i = {1};
+                        sistema.getHistorialIngresos().recorrer(ing ->
+                            System.out.println("  " + i[0]++ + ". " + ing));
+                    }
                     break;
                 case 0: volver = true; break;
                 default: System.out.println("  Opción inválida.");
@@ -249,11 +315,12 @@ public class Main {
 
     private static void agregarServicio() {
         System.out.println("\n-- Agregar Servicio al Paciente --");
-        String doc     = leerTexto("Documento del paciente: ");
+        String doc    = leerTexto("Documento del paciente: ");
         System.out.println("  (Consulte el catálogo con opción 1 para ver los códigos)");
-        String codigo  = leerTexto("Código de servicio    : ").toUpperCase();
-        int    cant    = leerEntero("Cantidad              : ");
-        double monto   = 0;
+        String codigo = leerTexto("Código de servicio    : ").toUpperCase();
+        int    cant   = leerEntero("Cantidad              : ");
+        double monto  = 0;
+        // Monto especial solo aplica a ítem de farmacia (código configurable por est.3)
         if (codigo.equals("SRV012")) {
             System.out.print("  Monto del ítem de farmacia ($): ");
             monto = leerDouble();
@@ -261,11 +328,15 @@ public class Main {
         System.out.println("  " + sistema.agregarServicio(doc, codigo, cant, monto));
     }
 
+    /**
+     * Solicita medio de pago y delega en SistemaClinica.registrarPago().
+     * Primero muestra el subtotal del ingreso activo para que el usuario
+     * conozca el valor antes de seleccionar el medio.
+     */
     private static void registrarPago() {
         System.out.println("\n-- Registrar Pago --");
         String doc = leerTexto("Documento del paciente: ");
 
-        // Mostrar subtotal antes de seleccionar medio
         Ingreso ing = sistema.buscarIngresoActivo(doc);
         if (ing == null) {
             System.out.println("  ERROR: Sin ingreso activo para este paciente.");
@@ -280,6 +351,7 @@ public class Main {
         System.out.println("    4. Seguro / EPS");
         int opMedio = leerEntero("  Seleccione medio (1-4): ");
 
+        // Pago.MedioPago: enum de Est.3 con getIndice() → 0=Efectivo, 1=Débito, 2=Crédito, 3=EPS
         Pago.MedioPago medio;
         switch (opMedio) {
             case 1:  medio = Pago.MedioPago.EFECTIVO;        break;
@@ -295,6 +367,8 @@ public class Main {
 
     // ════════════════════════════════════════════════════════════════════════
     // SUBMENÚ 5 – REPORTES
+    // Todos los métodos de Reportes devuelven String ya formateado.
+    // mostrarReporteCompleto() imprime los 10 seguidos.
     // ════════════════════════════════════════════════════════════════════════
     private static void menuReportes() {
         boolean volver = false;
@@ -314,18 +388,18 @@ public class Main {
             System.out.println("  0.  Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1:  reportes.mostrarReporteCompleto();               break;
-                case 2:  System.out.println(reportes.reporteTotalPacientes());  break;
-                case 3:  System.out.println(reportes.reportePorGenero());        break;
-                case 4:  System.out.println(reportes.reporteMontoTotal());       break;
-                case 5:  System.out.println(reportes.reportePorMedioPago());     break;
-                case 6:  System.out.println(reportes.reportePorServicio());      break;
-                case 7:  System.out.println(reportes.reporteDescuentos());       break;
-                case 8:  System.out.println(reportes.reportePorRangoEdad());     break;
-                case 9:  System.out.println(reportes.reporteExtremosPago());     break;
-                case 10: System.out.println(reportes.reporteEstadoColas());      break;
-                case 11: System.out.println(reportes.reportePromedios());        break;
-                case 0:  volver = true;                                  break;
+                case 1:  reportes.mostrarReporteCompleto();                    break;
+                case 2:  System.out.println(reportes.reporteTotalPacientes()); break;
+                case 3:  System.out.println(reportes.reportePorGenero());      break;
+                case 4:  System.out.println(reportes.reporteMontoTotal());     break;
+                case 5:  System.out.println(reportes.reportePorMedioPago());   break;
+                case 6:  System.out.println(reportes.reportePorServicio());    break;
+                case 7:  System.out.println(reportes.reporteDescuentos());     break;
+                case 8:  System.out.println(reportes.reportePorRangoEdad());   break;
+                case 9:  System.out.println(reportes.reporteExtremosPago());   break;
+                case 10: System.out.println(reportes.reporteEstadoColas());    break;
+                case 11: System.out.println(reportes.reportePromedios());      break;
+                case 0:  volver = true;                                        break;
                 default: System.out.println("  Opción inválida.");
             }
         }
@@ -333,6 +407,13 @@ public class Main {
 
     // ════════════════════════════════════════════════════════════════════════
     // SUBMENÚ 6 – CONSULTAS RÁPIDAS
+    //
+    // Caso 1: usa recorrer(Consumer) sobre getHabitaciones() buscando
+    //         Consultorio cuyo getEstado() sea "disponible".
+    //         — Antes usaba getCabeza()+while sobre ConsultorioHabitacion,
+    //           que no existe en este repositorio.
+    // Casos 2-3: tamano() y capacidadMaxima() (no getTamanio/getCapacidadMaxima).
+    // Caso 5: getServicios() devuelve ListaEnlazada<ItemServicio>; se itera con recorrer.
     // ════════════════════════════════════════════════════════════════════════
     private static void menuConsultas() {
         boolean volver = false;
@@ -346,39 +427,48 @@ public class Main {
             System.out.println("  0. Volver");
             int op = leerEntero("Opción: ");
             switch (op) {
-                case 1:
+                case 1: {
                     System.out.println("\n-- Salas Disponibles --");
-                    Nodo<ConsultorioHabitacion> nh = sistema.getHabitaciones().getCabeza();
-                    boolean hayDisp = false;
-                    int idx = 1;
-                    while (nh != null) {
-                        if (nh.getDato().isDisponible()) {
-                            System.out.println("  " + idx + ". " + nh.getDato());
-                            hayDisp = true;
+                    // Consultorio.getEstado() → "disponible" | "ocupado"
+                    boolean[] hayDisp = {false};
+                    sistema.getHabitaciones().recorrer(c -> {
+                        if ("disponible".equalsIgnoreCase(c.getEstado())) {
+                            System.out.printf("  Sala %d | %s%n", c.getNumero(), c.getTipo());
+                            hayDisp[0] = true;
                         }
-                        nh = nh.getSiguiente();
-                        idx++;
-                    }
-                    if (!hayDisp) System.out.println("  No hay salas disponibles.");
+                    });
+                    if (!hayDisp[0]) System.out.println("  No hay salas disponibles.");
                     break;
-                case 2:
+                }
+                case 2: {
                     System.out.println("\n-- Cola de Atención (Consulta Externa) --");
-                    System.out.println("  Pacientes en espera: " + sistema.getColaAtencion().getTamanio());
-                    System.out.println(sistema.getColaAtencion().toString());
+                    // tamano() — no getTamanio()
+                    System.out.println("  Pacientes en espera: " + sistema.getColaAtencion().tamano());
+                    sistema.getColaAtencion().recorrer(p ->
+                        System.out.println("    · " + p.getNombre()));
                     break;
-                case 3:
+                }
+                case 3: {
                     System.out.println("\n-- Cola Preoperatoria --");
-                    System.out.println("  Pacientes en espera: " + sistema.getColaPreoperatoria().getTamanio()
-                                       + " / " + sistema.getColaPreoperatoria().getCapacidadMaxima());
-                    System.out.println(sistema.getColaPreoperatoria().toString());
+                    // tamano() y capacidadMaxima() — no getTamanio/getCapacidadMaxima
+                    System.out.println("  Pacientes en espera: "
+                        + sistema.getColaPreoperatoria().tamano()
+                        + " / " + sistema.getColaPreoperatoria().capacidadMaxima());
+                    sistema.getColaPreoperatoria().recorrer(p ->
+                        System.out.println("    · " + p.getNombre()));
                     break;
-                case 4:
+                }
+                case 4: {
                     System.out.println("\n-- Historial de Ingresos --");
                     if (sistema.getHistorialIngresos().estaVacia())
                         System.out.println("  Sin ingresos registrados.");
-                    else
-                        System.out.print(sistema.getHistorialIngresos().toString());
+                    else {
+                        int[] i = {1};
+                        sistema.getHistorialIngresos().recorrer(ing ->
+                            System.out.println("  " + i[0]++ + ". " + ing));
+                    }
                     break;
+                }
                 case 5: {
                     String doc = leerTexto("Documento: ");
                     Ingreso ing = sistema.buscarIngresoActivo(doc);
@@ -391,7 +481,11 @@ public class Main {
                         if (ing.getServicios().estaVacia())
                             System.out.println("    (sin servicios aún)");
                         else
-                            System.out.print(ing.getServicios().toString());
+                            ing.getServicios().recorrer(item ->
+                                System.out.printf("    · %s x%d = $%,.0f%n",
+                                    item.getServicio().getNombre(),
+                                    item.getCantidad(),
+                                    item.getMontoFinal()));
                     }
                     break;
                 }
@@ -405,6 +499,7 @@ public class Main {
     // UTILIDADES DE LECTURA SEGURA POR CONSOLA
     // ════════════════════════════════════════════════════════════════════════
 
+    /** Lee un entero re-intentando hasta obtener input válido. */
     private static int leerEntero(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -417,6 +512,7 @@ public class Main {
         }
     }
 
+    /** Lee un double aceptando coma o punto decimal. */
     private static double leerDouble() {
         while (true) {
             String linea = sc.nextLine().trim().replace(",", ".");
@@ -428,6 +524,7 @@ public class Main {
         }
     }
 
+    /** Lee una línea de texto no vacía. */
     private static String leerTexto(String prompt) {
         System.out.print(prompt);
         return sc.nextLine().trim();
