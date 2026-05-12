@@ -1,4 +1,4 @@
-package co.edu.tdea;
+package com.tdea;
 
 /**
  * Nodo de una lista enlazada simple: dato y referencia al siguiente.

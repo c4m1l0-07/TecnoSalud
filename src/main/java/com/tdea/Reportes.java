@@ -1,5 +1,5 @@
-import co.edu.tdea.Cola;
-import co.edu.tdea.ListaEnlazada;
+package com.tdea;
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // Estudiante 4 – Módulo de Reportes y Estadísticas

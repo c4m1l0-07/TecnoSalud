@@ -1,3 +1,4 @@
+package com.tdea;
 public class Consultorio {
 
     private int numero;

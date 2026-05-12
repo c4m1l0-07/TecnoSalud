@@ -1,7 +1,6 @@
+package com.tdea;
 import java.util.Scanner;
-import co.edu.tdea.Cola;
-import co.edu.tdea.ListaEnlazada;
-import co.edu.tdea.Pila;
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // Estudiante 4 – Menú principal e integración del sistema

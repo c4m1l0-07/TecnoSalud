@@ -1,4 +1,4 @@
-package co.edu.tdea;
+package com.tdea;
 
 import java.util.Objects;
 import java.util.function.Consumer;

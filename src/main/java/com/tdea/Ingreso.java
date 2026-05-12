@@ -1,5 +1,5 @@
+package com.tdea;
 import java.time.LocalDateTime;
-import co.edu.tdea.ListaEnlazada;
 
 public class Ingreso {
 
